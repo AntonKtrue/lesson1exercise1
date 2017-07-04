@@ -497,3 +497,61 @@
 </project>
 #!/bin/bash
 java -Dfile.encoding=Cp1251 -Dcom.sun.management.jmxremote.port=7227 -Dcom.sun.management.jmxremote.ssl=false -Dcom.sun.management.jmxremote.authenticate=false -Dlog4j.configuration=file:conf/log4j.properties -Xmx512m -jar bin/fuse-mdm.jar
+log4j.rootLogger=INFO, CONSOLE, FILE
+
+log4j.logger.org.apache.camel=TRACE
+log4j.logger.org.apache.http=TRACE
+log4j.logger.java.net=TRACE
+S
+log4j.logger.javax.xml.bind=TRACE
+log4j.logger.com.tander.esb =INFO
+log4j.logger.com.atomikos=ERROR
+log4j.logger.atomikos=OFF
+log4j.logger.com.tander.milframework=INFO
+log4j.logger.com.tander.esb.mdm.upload=DEBUG
+#log4j.logger.org.apache.camel.processor.interceptor.Tracer=OFF
+
+
+
+
+
+# Console appender
+log4j.appender.CONSOLE=org.apache.log4j.ConsoleAppender
+log4j.appender.CONSOLE.Threshold = INFO
+log4j.appender.CONSOLE.layout=org.apache.log4j.PatternLayout
+#log4j.appender.CONSOLE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss} [%C] %-5p %m%n
+log4j.appender.CONSOLE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss.SSS} [%30.30c{1}] %-5p : %m%n
+
+log4j.appender.FILE=uk.org.simonsite.log4j.appender.TimeAndSizeRollingAppender
+log4j.appender.FILE.File=log/fuse_mdm.log
+log4j.appender.FILE.datePattern=.yyyy-MM-dd-HH-00
+log4j.appender.FILE.MaxRollFileCount=500
+log4j.appender.FILE.MaxFileSize=100MB
+log4j.appender.FILE.DateRollEnforced=true
+log4j.appender.FILE.CompressionAlgorithm=ZIP
+
+
+
+log4j.appender.FILE.layout = org.apache.log4j.PatternLayout
+log4j.appender.FILE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss.SSS} [%30.30c{1}] %-5p : %m%n
+
+
+#log4j.appender.FILE=org.apache.log4j.rolling.RollingFileAppender
+#log4j.appender.FILE.File=operations.log
+#log4j.appender.FILE.ImmediateFlush=false
+# Set the append to false, should not overwrite
+#log4j.appender.FILE.Append=true
+#log4j.appender.FILE.rollingPolicy=org.apache.log4j.rolling.FixedWindowRollingPolicy  
+#log4j.appender.FILE.rollingPolicy.maxIndex=10
+#log4j.appender.FILE.triggeringPolicy=org.apache.log4j.rolling.SizeBasedTriggeringPolicy  
+#log4j.appender.FILE.triggeringPolicy.MaxFileSize=20000000
+#log4j.appender.FILE.rollingPolicy.FileNamePattern=log/fuse_mdm_%i.log  
+#log4j.appender.FILE.rollingPolicy.ActiveFileName=log/fuse_mdm_0.log
+# Set the maximum file size before rollover
+#log4j.appender.FILE.MaxFileSize=10Mb
+# Set the the backup index
+#log4j.appender.FILE.MaxBackupIndex=10
+#log4j.appender.FILE.layout=org.apache.log4j.PatternLayout
+#log4j.appender.FILE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss} [%t] [%C{1}] %-5p %m%n
+#log4j.appender.FILE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss} [%20.20t] %-30.30c{1} %-5p : %m%n
+#log4j.appender.FILE.layout.ConversionPattern=%d{yyyy.MM.dd HH:mm:ss} [%30.30c{1}] %-5p : %m%n
