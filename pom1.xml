@@ -1,10 +1,10 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
-	<groupId>com.tander.esb</groupId>
-	<artifactId>fuse-mdm</artifactId>
-	<version>2.84.1</version>
-	<name>Fuse MDM</name>
+	<groupId></groupId>
+	<artifactId></artifactId>
+	<version></version>
+	<name></name>
 
 	<properties>
 		<maven.test.skip>true</maven.test.skip>
@@ -19,7 +19,7 @@
 		<saxon.version>9.4.0.6</saxon.version>
 		<jaxws.rt.version>2.1.7</jaxws.rt.version>
 		<moxy.version>2.5.1</moxy.version>
-		<milf.version>2.0.0</milf.version>
+		
 		<tomcat-jdbc.version>7.0.68</tomcat-jdbc.version>
 		<jackson.version>2.7.0</jackson.version>
                 <jackson.merch.version>1.9.13</jackson.merch.version>
@@ -29,7 +29,7 @@
         <profile>
             <id>fast</id>
             <properties>
-                <exclude.tests>/com/tander/route/**</exclude.tests>
+                <exclude.tests>/com/route/**</exclude.tests>
             </properties>
         </profile>
     </profiles>
@@ -426,11 +426,7 @@
 		</dependency>
 
 		<!-- DB -->
-		<dependency>
-			<groupId>com.tander.esb.osgi</groupId>
-			<artifactId>milf-core</artifactId>
-			<version>${milf.version}</version>
-		</dependency>
+		
 		<dependency>
 			<groupId>org.apache.tomcat</groupId>
 			<artifactId>tomcat-jdbc</artifactId>
