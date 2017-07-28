@@ -1,0 +1,135 @@
+import java.io.FileInputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.nio.file.Files;
+public class Temp {	
+	public static void main(String[] args) throws Exception {
+		String fileName = "C:/Users/Anton.Kitov/Documents/temp/file.gst";
+		RandomAccessFile fis = new RandomAccessFile(fileName, "r");
+		System.out.println("lenght: " + fis.length());
+		byte[] version = new byte[8];
+		fis.read(version);
+		byte[] cmn1n = new byte[32];
+		byte[] cmn1v = new byte[64];
+		fis.read(cmn1n);
+		fis.read(cmn1v);		
+		byte[] cmn2n = new byte[32];
+		byte[] cmn2v = new byte[64];
+		fis.read(cmn2n);
+		fis.read(cmn2v);
+		byte[] cmn3n = new byte[32];
+		byte[] cmn3v = new byte[64];
+		fis.read(cmn3n);
+		fis.read(cmn3v);
+		byte[] cmn4n = new byte[32];
+		byte[] cmn4v = new byte[64];
+		fis.read(cmn4n);
+		fis.read(cmn4v);
+		byte[] cmn5n = new byte[32];
+		byte[] cmn5v = new byte[64];
+		fis.read(cmn5n);
+		fis.read(cmn5v);
+		byte[] cmn6n = new byte[32];
+		byte[] cmn6v = new byte[64];
+		fis.read(cmn6n);
+		fis.read(cmn6v);
+		byte[] cmn7n = new byte[32];
+		byte[] cmn7v = new byte[64];
+		fis.read(cmn7n);
+		fis.read(cmn7v);
+		byte[] cmn8n = new byte[32];
+		byte[] cmn8v = new byte[64];
+		fis.read(cmn8n);
+		fis.read(cmn8v);
+		byte[] meas1n = new byte[16];
+		byte[] meas1e = new byte[8];
+		byte[] meas1t = new byte[8];
+		byte[] meas1unkn1 = new byte[6];
+		byte[] meas1startbyte = new byte[2];
+		byte[] meas1unkn2 = new byte[8];
+		byte[] meas1starttime = new byte[8];
+		byte[] meas1countrow = new byte[2];
+		byte[] meas1unkn3 = new byte[6];
+		byte[] meas1unkn4 = new byte[8];
+		fis.read(meas1n);
+		fis.read(meas1e);
+		fis.read(meas1t);
+		fis.read(meas1unkn1);
+		fis.read(meas1startbyte);
+		fis.read(meas1unkn2);
+		fis.read(meas1starttime);
+		fis.read(meas1countrow);
+		fis.read(meas1unkn3);
+		fis.read(meas1unkn4);
+		byte[] meas2n = new byte[16];
+		byte[] meas2e = new byte[8];
+		byte[] meas2t = new byte[8];
+		byte[] meas2unkn1 = new byte[6];
+		byte[] meas2startbyte = new byte[2];
+		byte[] meas2unkn2 = new byte[8];
+		byte[] meas2starttime = new byte[8];
+		byte[] meas2countrow = new byte[2];
+		byte[] meas2unkn3 = new byte[6];
+		byte[] meas2unkn4 = new byte[8];
+		fis.read(meas2n);
+		fis.read(meas2e);
+		fis.read(meas2t);
+		fis.read(meas2unkn1);
+		fis.read(meas2startbyte);
+		fis.read(meas2unkn2);
+		fis.read(meas2starttime);
+		fis.read(meas2countrow);
+		fis.read(meas2unkn3);
+		fis.read(meas2unkn4);
+		double starttime = ByteBuffer.wrap(meas2starttime).order(ByteOrder.LITTLE_ENDIAN).getDouble();
+		System.out.println(starttime);
+		Calendar c = Calendar.getInstance();
+		c.set(1899, 11,30,0,0);
+		c.add(Calendar.DATE, (int)starttime);
+		c.add(Calendar.MINUTE,(int)((60*24)*(starttime - (int)starttime)));
+		SimpleDateFormat sdf = new SimpleDateFormat();
+		System.out.println(sdf.format(c.getTime()));
+		int meas1offset = ByteBuffer.wrap(meas1startbyte).order(ByteOrder.LITTLE_ENDIAN).getChar();
+		int meas2offset = ByteBuffer.wrap(meas2startbyte).order(ByteOrder.LITTLE_ENDIAN).getChar();
+		int meas1count = ByteBuffer.wrap(meas1countrow).order(ByteOrder.LITTLE_ENDIAN).getChar();
+		int meas2count = ByteBuffer.wrap(meas2countrow).order(ByteOrder.LITTLE_ENDIAN).getChar();
+		String meas1name = new String(meas1n);
+		String meas2name = new String(meas2n);
+		
+		System.out.println(meas1offset);
+		System.out.println(meas2offset);
+		System.out.println(meas1count);
+		System.out.println(meas2count);
+		System.out.println(meas1name + "\t" + meas2name );
+		
+		for(int i = 0; i < meas1count; i=i+4) {
+			byte[] meas1buff = new byte[4];
+			byte[] meas2buff = new byte[4];
+			fis.seek(meas1offset+i);
+			fis.read(meas1buff);
+			fis.seek(meas2offset+i);
+			fis.read(meas2buff);
+			float meas1val = ByteBuffer.wrap(meas1buff).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+			float meas2val = ByteBuffer.wrap(meas2buff).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+			System.out.println(meas1val + "\t" + meas2val);
+		}
+//		Path file = Paths.get("file.gst");
+//		byte[] data = Files.readAllBytes(file);
+//		for(int i=0; i < data.length; i=i+4) {
+//			byte[] bytes = new byte[4];
+//			bytes[0] = data[i];
+//			bytes[1] = data[i+1];
+//			bytes[2] = data[i+2];
+//			bytes[3] = data[i+3];
+//			float fl = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+//			System.out.println(fl);
+//		}	
+		
+
+	}
+}
