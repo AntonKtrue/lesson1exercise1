@@ -1,0 +1,1582 @@
+package application;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Random;
+
+import javafx.application.Application;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.chart.XYChart.Data;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.control.Button;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+
+public class GeoCharts extends Application {
+
+	Temp temp = new Temp();
+    final int NUM_DATA_POINTS = temp.getMeas1count();
+	@Override
+	public void start(Stage primaryStage) {
+		NumberAxis xAxis = new NumberAxis(0, NUM_DATA_POINTS, 500);
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel(temp.getMeas1name());
+
+        System.out.println("add meas1");
+        LineChart baseChart = new LineChart(xAxis, yAxis);
+		baseChart.getData().add(prepareSeries(temp.getMeas1name(), temp.getMeas1()));
+		//final StackPane chartContainer = new StackPane();
+		//chartContainer.getChildren().add(baseChart);
+		MultipleAxesLineChart chart = new MultipleAxesLineChart(baseChart, Color.RED);
+		chart.addSeries(prepareSeries(temp.getMeas2name(), temp.getMeas2()), Color.BLUE, 0);
+		Grp grp = new Grp();
+        chart.addSeries(prepareSeries(grp.getHeaders()[1], grp.getMeasures().get(1)), Color.ALICEBLUE, 1);
+        chart.addSeries(prepareSeries(grp.getHeaders()[3], grp.getMeasures().get(3)), Color.AQUAMARINE, 2);
+        chart.addSeries(prepareSeries(grp.getHeaders()[12], grp.getMeasures().get(12)), Color.CADETBLUE, 3);
+        chart.addSeries(prepareSeries(grp.getHeaders()[50], grp.getMeasures().get(50)), Color.BLUEVIOLET, 4);
+		final Rectangle zoomRect = new Rectangle();
+		zoomRect.setManaged(false);
+		zoomRect.setFill(Color.LIGHTSEAGREEN.deriveColor(0, 1, 1, 0.3));
+		chart.getChildren().add(zoomRect);
+
+		setUpZooming(zoomRect, baseChart);
+
+		final HBox controls = new HBox(10);
+		controls.setPadding(new Insets(10));
+		controls.setAlignment(Pos.CENTER);
+
+		final Button zoomButton = new Button("Zoom");
+		final Button resetButton = new Button("Reset");
+		zoomButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                doZoom(zoomRect, baseChart);
+            }
+        });
+		resetButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                final NumberAxis xAxis = (NumberAxis)baseChart.getXAxis();
+                xAxis.setLowerBound(0);
+                xAxis.setUpperBound(NUM_DATA_POINTS);
+                final NumberAxis yAxis = (NumberAxis)baseChart.getYAxis();
+                yAxis.setLowerBound(0);
+                yAxis.setUpperBound(1000);
+
+                zoomRect.setWidth(0);
+                zoomRect.setHeight(0);
+            }
+        });
+		final BooleanBinding disableControls =
+		        zoomRect.widthProperty().lessThan(5)
+		        .or(zoomRect.heightProperty().lessThan(5));
+		zoomButton.disableProperty().bind(disableControls);
+		controls.getChildren().addAll(zoomButton, resetButton);
+
+		final BorderPane root = new BorderPane();
+		root.setCenter(chart);
+		root.setBottom(controls);
+
+		final Scene scene = new Scene(root, 800, 600);
+		primaryStage.setScene(scene);
+		primaryStage.show();
+	}
+
+//	private LineChart<Number, Number> createChart() {
+//	    final NumberAxis xAxis = createAxis();
+//	    final NumberAxis yAxis = createAxis();
+//	    final LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
+//	    chart.setAnimated(false);
+//	    chart.setCreateSymbols(false);
+//	    chart.setData(generateChartData());
+//
+//	    return chart ;
+//	}
+//
+//    private NumberAxis createAxis() {
+//        final NumberAxis xAxis = new NumberAxis();
+//	    xAxis.setAutoRanging(false);
+//	    xAxis.setLowerBound(0);
+//	    xAxis.setUpperBound(1000);
+//        return xAxis;
+//    }
+
+    private ObservableList<Series<Number, Number>> generateChartData() {
+        final Series<Number, Number> series = new Series<>();
+        series.setName("Data");
+        final Random rng = new Random();
+        for (int i=0; i<NUM_DATA_POINTS; i++) {
+            Data<Number, Number> dataPoint = new Data<Number, Number>(i, rng.nextInt(1000));
+            series.getData().add(dataPoint);
+        }
+        return FXCollections.observableArrayList(Collections.singleton(series));
+    }
+
+    private void setUpZooming(final Rectangle rect, final Node zoomingNode) {
+        final ObjectProperty<Point2D> mouseAnchor = new SimpleObjectProperty<>();
+        zoomingNode.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                mouseAnchor.set(new Point2D(event.getX(), event.getY()));
+                rect.setWidth(0);
+                rect.setHeight(0);
+            }
+        });
+        zoomingNode.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                double x = event.getX();
+                double y = event.getY();
+                rect.setX(Math.min(x, mouseAnchor.get().getX()));
+                rect.setY(Math.min(y, mouseAnchor.get().getY()));
+                rect.setWidth(Math.abs(x - mouseAnchor.get().getX()));
+                rect.setHeight(Math.abs(y - mouseAnchor.get().getY()));
+            }
+        });
+    }
+
+    private void doZoom(Rectangle zoomRect, LineChart<Number, Number> chart) {
+        Point2D zoomTopLeft = new Point2D(zoomRect.getX(), zoomRect.getY());
+        Point2D zoomBottomRight = new Point2D(zoomRect.getX() + zoomRect.getWidth(), zoomRect.getY() + zoomRect.getHeight());
+        final NumberAxis yAxis = (NumberAxis) chart.getYAxis();
+        Point2D yAxisInScene = yAxis.localToScene(0, 0);
+        final NumberAxis xAxis = (NumberAxis) chart.getXAxis();
+        Point2D xAxisInScene = xAxis.localToScene(0, 0);
+        double xOffset = zoomTopLeft.getX() - yAxisInScene.getX() ;
+        double yOffset = zoomBottomRight.getY() - xAxisInScene.getY();
+        double xAxisScale = xAxis.getScale();
+        double yAxisScale = yAxis.getScale();
+        xAxis.setLowerBound(xAxis.getLowerBound() + xOffset / xAxisScale);
+        xAxis.setUpperBound(xAxis.getLowerBound() + zoomRect.getWidth() / xAxisScale);
+        yAxis.setLowerBound(yAxis.getLowerBound() + yOffset / yAxisScale);
+        yAxis.setUpperBound(yAxis.getLowerBound() - zoomRect.getHeight() / yAxisScale);
+        System.out.println(yAxis.getLowerBound() + " " + yAxis.getUpperBound());
+        zoomRect.setWidth(0);
+        zoomRect.setHeight(0);
+    }
+
+    private XYChart.Series<Number, Number> prepareSeries(String name, ArrayList<XYChart.Data<Number, Number>> list ) {
+    	XYChart.Series<Number, Number> series = new XYChart.Series<>();
+    	series.setName(name);
+    	series.getData().addAll(list);
+    	return series;
+    }
+
+	public static void main(String[] args) {
+		launch(args);
+	}
+}
+package application;
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+
+import javafx.scene.chart.XYChart;
+
+public class Grp {
+	private String[] headers;
+	private String[] units;
+	private ArrayList<ArrayList<String>> parts = new ArrayList<>();
+	private ArrayList<ArrayList<XYChart.Data<Number, Number>>> measures = new ArrayList<>();
+
+	public ArrayList<ArrayList<XYChart.Data<Number, Number>>> getMeasures() {
+		return measures;
+	}
+
+	public String[] getHeaders() {
+		return headers;
+	}
+
+	public String[] getUnits() {
+		return units;
+	}
+
+
+
+	public Grp()  {
+		String fileName = "C:/TEMP/grp.txt";
+
+		try {
+			BufferedReader reader = new BufferedReader(new FileReader(fileName));
+			String line;
+			String headersLine = new String(reader.readLine().getBytes("Cp1251"), "UTF-8");
+			headers = headersLine.split("\t");
+			units = reader.readLine().split("\t");
+			for(int k = 0; k < headers.length; k++) {
+				measures.add(new ArrayList<XYChart.Data<Number, Number>>());
+			}
+			int j = 0;
+			while((line = reader.readLine()) != null) {
+				String[] arr = line.split("\t");
+				int i=0;
+				for(String part : arr) 	{
+					measures.get(i).add(new XYChart.Data<Number, Number>(j,Double.parseDouble(part.replace(",", ".").trim())));
+					i++;
+				}
+				j++;
+			}
+		} catch (FileNotFoundException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	public static void main(String[] args) {
+		 new Grp();
+	}
+}
+
+
+package application;
+
+import javafx.application.Application;
+import javafx.beans.value.ObservableValue;
+import javafx.event.ActionEvent;
+import javafx.scene.Scene;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.control.Button;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
+
+/**
+ * @web http://java-buddy.blogspot.com/
+ */
+public class JavaFX_LineChart extends Application {
+
+    Label label1, label2, label3;
+    XYChart.Series /*series1, series2,*/ series3;
+    final int MAX_NUM = 10;
+    @Override
+    public void start(Stage primaryStage) {
+
+        TextField textField = new TextField();
+        Button btn = new Button();
+        btn.setText("Add item");
+        btn.setOnAction((ActionEvent event) -> {
+            try{
+                int i = Integer.parseInt(textField.getText());
+                System.out.println(String.valueOf(i));
+
+               // removeAndAdd(series1, i);
+               // reduceSeriesXValue(series2, i);
+                shiftSeriesYValue(series3, i);
+
+              //  printSeries(series1, label1);
+             //   printSeries(series2, label2);
+                printSeries(series3, label3);
+
+            }catch (NumberFormatException ex){
+                System.out.println(ex.toString());
+            }
+        });
+
+        label1 = new Label();
+        label2 = new Label();
+        label3 = new Label();
+
+        //prepare LineChart 1
+        final NumberAxis xAxis1 = new NumberAxis();
+        final NumberAxis yAxis1 = new NumberAxis();
+        final LineChart<Number,Number> lineChart1 =
+                new LineChart<>(xAxis1,yAxis1);
+    //    series1 = new XYChart.Series();
+    //    series1.setName("series1");
+   //     lineChart1.getData().add(series1);
+
+        //prepare LineChart 2
+        final NumberAxis xAxis2 = new NumberAxis();
+        final NumberAxis yAxis2 = new NumberAxis();
+        final LineChart<Number,Number> lineChart2 =
+                new LineChart<>(xAxis2,yAxis2);
+    //    series2 = new XYChart.Series();
+    //    series2.setName("series2");
+   //     lineChart2.getData().add(series2);
+
+        //prepare LineChart 3
+        final NumberAxis xAxis3 = new NumberAxis();
+        final NumberAxis yAxis3 = new NumberAxis();
+        final LineChart<Number,Number> lineChart3 =
+                new LineChart<>(xAxis3,yAxis3);
+        series3 = new XYChart.Series();
+        series3.setName("series3");
+        lineChart3.getData().add(series3);
+
+        //init dummy data
+        for(int i=0; i<MAX_NUM; i++){
+         //   series1.getData().add(new XYChart.Data(i, i));
+        //    series2.getData().add(new XYChart.Data(i, i));
+            series3.getData().add(new XYChart.Data(i, i));
+        }
+
+      //  printSeries(series1, label1);
+      //  printSeries(series2, label2);
+        printSeries(series3, label3);
+
+        VBox vBox1 = new VBox();
+        vBox1.getChildren().addAll(lineChart1, label1);
+        VBox vBox2 = new VBox();
+        vBox2.getChildren().addAll(lineChart2, label2);
+        VBox vBox3 = new VBox();
+        vBox3.getChildren().addAll(lineChart3, label3);
+
+        HBox chartBox = new HBox();
+        chartBox.getChildren().addAll(vBox1, vBox2, vBox3);
+
+        CheckBox cbAnimated = new CheckBox("animated");
+        cbAnimated.setSelected(true);
+        cbAnimated.selectedProperty().addListener(
+                (ObservableValue<? extends Boolean> observable,
+                        Boolean oldValue, Boolean newValue) -> {
+            lineChart1.setAnimated(newValue);
+            lineChart2.setAnimated(newValue);
+            lineChart3.setAnimated(newValue);
+        });
+
+        VBox vBox = new VBox();
+        vBox.getChildren().addAll(cbAnimated, textField, btn, chartBox);
+
+        StackPane root = new StackPane();
+        root.getChildren().add(vBox);
+
+        Scene scene = new Scene(root, 1000, 650);
+
+        primaryStage.setTitle("java-buddy.blogspot.com");
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    //Remove the first item, and add the new item - WRONG result!
+    private void removeAndAdd(XYChart.Series series, int newValue){
+        series.getData().remove(0);
+        XYChart.Data newData =
+                new XYChart.Data(series.getData().size(), newValue);
+        series.getData().add(newData);
+    }
+
+    //remove the first item
+    //reduce XValue of all items by 1
+    //add the new item
+    public void reduceSeriesXValue(XYChart.Series series, int newValue){
+        series.getData().remove(0);
+        int numOfPoint = series.getData().size();
+        for(int i=0; i<numOfPoint; i++){
+            //reduce XValue
+            XYChart.Data<Number, Number> data =
+                    (XYChart.Data<Number, Number>)series.getData().get(i);
+            int x = (int)data.getXValue();
+            data.setXValue(x-1);
+        }
+
+        series.getData().add(new XYChart.Data(numOfPoint, newValue));
+
+    }
+
+    //Shift all YValue
+    //add the new item
+    public void shiftSeriesYValue(XYChart.Series series, int newValue){
+        int numOfPoint = series.getData().size();
+        for(int i=0; i<numOfPoint-1; i++){
+            XYChart.Data<Number, Number> ShiftDataUp =
+                    (XYChart.Data<Number, Number>)series.getData().get(i+1);
+            Number shiftValue = ShiftDataUp.getYValue();
+            XYChart.Data<Number, Number> ShiftDataDn =
+                    (XYChart.Data<Number, Number>)series.getData().get(i);
+            ShiftDataDn.setYValue(shiftValue);
+        }
+        XYChart.Data<Number, Number> lastData =
+            (XYChart.Data<Number, Number>)series.getData().get(numOfPoint-1);
+        lastData.setYValue(newValue);
+    }
+
+    //display the data of series
+    private void printSeries(XYChart.Series series, Label label){
+        String printOut = "";
+        int numOfPoint = series.getData().size();
+        for(int i=0; i<numOfPoint; i++){
+            XYChart.Data<Number, Number> data =
+                    (XYChart.Data<Number, Number>)series.getData().get(i);
+            printOut += i + " - " + data.getXValue()
+                    + " : " + data.getYValue() + "\n";
+        }
+
+        label.setText(printOut);
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+
+}package application;
+
+import java.util.Objects;
+import java.util.Random;
+
+import javafx.application.Application;
+import javafx.beans.InvalidationListener;
+import javafx.beans.Observable;
+import javafx.beans.binding.Bindings;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.beans.value.ObservableDoubleValue;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+
+import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
+import javafx.geometry.Point2D;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.chart.Axis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.chart.XYChart.Data;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.control.Slider;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.Pane;
+import javafx.scene.shape.Line;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+
+import java.util.Collections;
+import java.util.Random;
+
+import javafx.application.Application;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.chart.Axis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart.Data;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.control.Button;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+
+public class Main extends Application {
+	@Override
+	public void start(Stage stage) throws Exception {
+//		try {
+//			BorderPane root = new BorderPane();
+//			Scene scene = new Scene(root,400,400);
+//			scene.getStylesheets().add(getClass().getResource("application.css").toExternalForm());
+//			primaryStage.setScene(scene);
+//			primaryStage.show();
+//		} catch(Exception e) {
+//			e.printStackTrace();
+//		}
+//		 URL url = getClass().getResource("/resources/MainForm.fxml");
+//		 Parent root = FXMLLoader.load(url);
+//
+//
+//		 primaryStage.setTitle("FXML Welcome");
+//		 primaryStage.setScene(new Scene(root, 300, 275));
+//		 primaryStage.show();
+
+		final NumberAxis xAxis = new NumberAxis();
+        final NumberAxis yAxis = new NumberAxis();
+        xAxis.setLabel("Number of Month");
+
+        final LineChartWithMarkers<Number,Number> lineChart = new LineChartWithMarkers<Number,Number>(xAxis,yAxis);
+
+        XYChart.Series series = new XYChart.Series();
+        series.setName("My portfolio");
+
+        series.getData().add(new XYChart.Data(1, 23));
+        series.getData().add(new XYChart.Data(20, 14));
+        series.getData().add(new XYChart.Data(3, 15));
+        series.getData().add(new XYChart.Data(4, 24));
+        series.getData().add(new XYChart.Data(5, 34));
+        series.getData().add(new XYChart.Data(6, 36));
+        series.getData().add(new XYChart.Data(7, 22));
+        series.getData().add(new XYChart.Data(8, 45));
+        series.getData().add(new XYChart.Data(9, 43));
+        series.getData().add(new XYChart.Data(100, 17));
+        series.getData().add(new XYChart.Data(11, 29));
+        series.getData().add(new XYChart.Data(12, 25));
+
+        lineChart.getData().add(series);
+
+        Data<Number, Number> horizontalMarker = new Data<>(0, 25);
+        lineChart.addHorizontalValueMarker(horizontalMarker);
+
+        Data<Number, Number> verticalMarker = new Data<>(10, 0);
+        lineChart.addVerticalValueMarker(verticalMarker);
+
+        Slider horizontalMarkerSlider = new Slider(yAxis.getLowerBound(), yAxis.getUpperBound(), 0);
+        horizontalMarkerSlider.setOrientation(Orientation.VERTICAL);
+        horizontalMarkerSlider.setShowTickLabels(true);
+        horizontalMarkerSlider.valueProperty().bindBidirectional(horizontalMarker.YValueProperty());
+        horizontalMarkerSlider.minProperty().bind(yAxis.lowerBoundProperty());
+        horizontalMarkerSlider.maxProperty().bind(yAxis.upperBoundProperty());
+
+        Slider verticalMarkerSlider = new Slider(xAxis.getLowerBound(), xAxis.getUpperBound(), 0);
+        verticalMarkerSlider.setOrientation(Orientation.HORIZONTAL);
+        verticalMarkerSlider.setShowTickLabels(true);
+        verticalMarkerSlider.valueProperty().bindBidirectional(verticalMarker.XValueProperty());
+        verticalMarkerSlider.minProperty().bind(xAxis.lowerBoundProperty());
+        verticalMarkerSlider.maxProperty().bind(xAxis.upperBoundProperty());
+
+        BorderPane borderPane = new BorderPane();
+
+        borderPane.setCenter( lineChart);
+        borderPane.setTop(verticalMarkerSlider);
+        borderPane.setRight(horizontalMarkerSlider);
+
+        Scene scene  = new Scene(borderPane,800,600);
+
+        stage.setScene(scene);
+        stage.show();
+	}
+
+	public static void main(String[] args) {
+		launch(args);
+	}
+
+	 private void setUpZooming(final Rectangle rect, final Node zoomingNode) {
+	        final ObjectProperty<Point2D> mouseAnchor = new SimpleObjectProperty<>();
+	        zoomingNode.setOnMousePressed(new EventHandler<MouseEvent>() {
+	            @Override
+	            public void handle(MouseEvent event) {
+	                mouseAnchor.set(new Point2D(event.getX(), event.getY()));
+	                rect.setWidth(0);
+	                rect.setHeight(0);
+	            }
+	        });
+	        zoomingNode.setOnMouseDragged(new EventHandler<MouseEvent>() {
+	            @Override
+	            public void handle(MouseEvent event) {
+	                double x = event.getX();
+	                double y = event.getY();
+	                rect.setX(Math.min(x, mouseAnchor.get().getX()));
+	                rect.setY(Math.min(y, mouseAnchor.get().getY()));
+	                rect.setWidth(Math.abs(x - mouseAnchor.get().getX()));
+	                rect.setHeight(Math.abs(y - mouseAnchor.get().getY()));
+	            }
+	        });
+	    }
+
+	private void doZoom(Rectangle zoomRect, LineChart<Number, Number> chart) {
+        Point2D zoomTopLeft = new Point2D(zoomRect.getX(), zoomRect.getY());
+        Point2D zoomBottomRight = new Point2D(zoomRect.getX() + zoomRect.getWidth(), zoomRect.getY() + zoomRect.getHeight());
+        final NumberAxis yAxis = (NumberAxis) chart.getYAxis();
+        Point2D yAxisInScene = yAxis.localToScene(0, 0);
+        final NumberAxis xAxis = (NumberAxis) chart.getXAxis();
+        Point2D xAxisInScene = xAxis.localToScene(0, 0);
+        double xOffset = zoomTopLeft.getX() - yAxisInScene.getX() ;
+        double yOffset = zoomBottomRight.getY() - xAxisInScene.getY();
+        double xAxisScale = xAxis.getScale();
+        double yAxisScale = yAxis.getScale();
+        xAxis.setLowerBound(xAxis.getLowerBound() + xOffset / xAxisScale);
+        xAxis.setUpperBound(xAxis.getLowerBound() + zoomRect.getWidth() / xAxisScale);
+        yAxis.setLowerBound(yAxis.getLowerBound() + yOffset / yAxisScale);
+        yAxis.setUpperBound(yAxis.getLowerBound() - zoomRect.getHeight() / yAxisScale);
+        System.out.println(yAxis.getLowerBound() + " " + yAxis.getUpperBound());
+        zoomRect.setWidth(0);
+        zoomRect.setHeight(0);
+    }
+
+	private class LineChartWithMarkers<X,Y> extends LineChart {
+
+	        private ObservableList<Data<X, Y>> horizontalMarkers;
+	        private ObservableList<Data<X, Y>> verticalMarkers;
+
+	        public LineChartWithMarkers(Axis<X> xAxis, Axis<Y> yAxis) {
+	            super(xAxis, yAxis);
+	            horizontalMarkers = FXCollections.observableArrayList(data -> new Observable[] {data.YValueProperty()});
+	            horizontalMarkers.addListener((InvalidationListener)observable -> layoutPlotChildren());
+	            verticalMarkers = FXCollections.observableArrayList(data -> new Observable[] {data.XValueProperty()});
+	            verticalMarkers.addListener((InvalidationListener)observable -> layoutPlotChildren());
+	        }
+
+	        public void addHorizontalValueMarker(Data<X, Y> marker) {
+	            Objects.requireNonNull(marker, "the marker must not be null");
+	            if (horizontalMarkers.contains(marker)) return;
+	            Line line = new Line();
+	            marker.setNode(line );
+	            getPlotChildren().add(line);
+	            horizontalMarkers.add(marker);
+	        }
+
+	        public void removeHorizontalValueMarker(Data<X, Y> marker) {
+	            Objects.requireNonNull(marker, "the marker must not be null");
+	            if (marker.getNode() != null) {
+	                getPlotChildren().remove(marker.getNode());
+	                marker.setNode(null);
+	            }
+	            horizontalMarkers.remove(marker);
+	        }
+
+	        public void addVerticalValueMarker(Data<X, Y> marker) {
+	            Objects.requireNonNull(marker, "the marker must not be null");
+	            if (verticalMarkers.contains(marker)) return;
+	            Line line = new Line();
+	            marker.setNode(line );
+	            getPlotChildren().add(line);
+	            verticalMarkers.add(marker);
+	        }
+
+	        public void removeVerticalValueMarker(Data<X, Y> marker) {
+	            Objects.requireNonNull(marker, "the marker must not be null");
+	            if (marker.getNode() != null) {
+	                getPlotChildren().remove(marker.getNode());
+	                marker.setNode(null);
+	            }
+	            verticalMarkers.remove(marker);
+	        }
+
+
+	        @Override
+	        protected void layoutPlotChildren() {
+	            super.layoutPlotChildren();
+	            for (Data<X, Y> horizontalMarker : horizontalMarkers) {
+	                Line line = (Line) horizontalMarker.getNode();
+	                line.setStartX(0);
+	                line.setEndX(getBoundsInLocal().getWidth());
+	                line.setStartY(getYAxis().getDisplayPosition(horizontalMarker.getYValue()) + 0.5); // 0.5 for crispness
+	                line.setEndY(line.getStartY());
+	                line.toFront();
+	            }
+	            for (Data<X, Y> verticalMarker : verticalMarkers) {
+	                Line line = (Line) verticalMarker.getNode();
+	                line.setStartX(getXAxis().getDisplayPosition(verticalMarker.getXValue()) + 0.5);  // 0.5 for crispness
+	                line.setEndX(line.getStartX());
+	                line.setStartY(0d);
+	                line.setEndY(getBoundsInLocal().getHeight());
+	                line.toFront();
+	            }
+	        }
+
+	    }
+}
+package application;
+import javafx.beans.Observable;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.geometry.Pos;
+import javafx.geometry.Side;
+import javafx.scene.Cursor;
+import javafx.scene.Node;
+import javafx.scene.chart.Axis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.control.CheckBox;
+import javafx.scene.control.Label;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.AnchorPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Line;
+
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+public class MultipleAxesLineChart extends StackPane {
+
+    private final LineChart baseChart;
+    private final ObservableList<LineChart> backgroundCharts = FXCollections.observableArrayList();
+    private final Map<LineChart, Color> chartColorMap = new HashMap<>();
+
+    private final double yAxisWidth = 60;
+    private final AnchorPane detailsWindow;
+
+    private final double yAxisSeparation = 20;
+    private double strokeWidth = 0.3;
+
+    public MultipleAxesLineChart(LineChart baseChart, Color lineColor) {
+        this(baseChart, lineColor, null);
+    }
+
+    public MultipleAxesLineChart(LineChart baseChart, Color lineColor, Double strokeWidth) {
+        if (strokeWidth != null) {
+            this.strokeWidth = strokeWidth;
+        }
+        this.baseChart = baseChart;
+
+        chartColorMap.put(baseChart, lineColor);
+
+        styleBaseChart(baseChart);
+        styleChartLine(baseChart, lineColor);
+        setFixedAxisWidth(baseChart);
+
+        setAlignment(Pos.CENTER_LEFT);
+
+        backgroundCharts.addListener((Observable observable) -> rebuildChart());
+
+        detailsWindow = new AnchorPane();
+        bindMouseEvents(baseChart, this.strokeWidth);
+
+        rebuildChart();
+    }
+
+    private void bindMouseEvents(LineChart baseChart, Double strokeWidth) {
+        final DetailsPopup detailsPopup = new DetailsPopup();
+        getChildren().add(detailsWindow);
+        detailsWindow.getChildren().add(detailsPopup);
+        detailsWindow.prefHeightProperty().bind(heightProperty());
+        detailsWindow.prefWidthProperty().bind(widthProperty());
+        detailsWindow.setMouseTransparent(true);
+
+        setOnMouseMoved(null);
+        setMouseTransparent(false);
+
+        final Axis xAxis = baseChart.getXAxis();
+        final Axis yAxis = baseChart.getYAxis();
+
+        final Line xLine = new Line();
+        final Line yLine = new Line();
+        yLine.setFill(Color.GRAY);
+        xLine.setFill(Color.GRAY);
+        yLine.setStrokeWidth(strokeWidth/2);
+        xLine.setStrokeWidth(strokeWidth/2);
+        xLine.setVisible(false);
+        yLine.setVisible(false);
+
+        final Node chartBackground = baseChart.lookup(".chart-plot-background");
+        for (Node n: chartBackground.getParent().getChildrenUnmodifiable()) {
+            if (n != chartBackground && n != xAxis && n != yAxis) {
+                n.setMouseTransparent(true);
+            }
+        }
+        chartBackground.setCursor(Cursor.CROSSHAIR);
+        chartBackground.setOnMouseEntered((event) -> {
+            chartBackground.getOnMouseMoved().handle(event);
+            detailsPopup.setVisible(true);
+            xLine.setVisible(true);
+            yLine.setVisible(true);
+            detailsWindow.getChildren().addAll(xLine, yLine);
+        });
+        chartBackground.setOnMouseExited((event) -> {
+            detailsPopup.setVisible(false);
+            xLine.setVisible(false);
+            yLine.setVisible(false);
+            detailsWindow.getChildren().removeAll(xLine, yLine);
+        });
+        chartBackground.setOnMouseMoved(event -> {
+            double x = event.getX() + chartBackground.getLayoutX();
+            double y = event.getY() + chartBackground.getLayoutY();
+
+            xLine.setStartX(10);
+            xLine.setEndX(detailsWindow.getWidth()-10);
+            xLine.setStartY(y+5);
+            xLine.setEndY(y+5);
+
+            yLine.setStartX(x+5);
+            yLine.setEndX(x+5);
+            yLine.setStartY(10);
+            yLine.setEndY(detailsWindow.getHeight()-10);
+
+            detailsPopup.showChartDescrpition(event);
+
+            if (y + detailsPopup.getHeight() + 10 < getHeight()) {
+                AnchorPane.setTopAnchor(detailsPopup, y+10);
+            } else {
+                AnchorPane.setTopAnchor(detailsPopup, y-10-detailsPopup.getHeight());
+            }
+
+            if (x + detailsPopup.getWidth() + 10 < getWidth()) {
+                AnchorPane.setLeftAnchor(detailsPopup, x+10);
+            } else {
+                AnchorPane.setLeftAnchor(detailsPopup, x-10-detailsPopup.getWidth());
+            }
+        });
+    }
+
+    private void styleBaseChart(LineChart baseChart) {
+        baseChart.setCreateSymbols(false);
+        baseChart.setLegendVisible(false);
+        baseChart.getXAxis().setAutoRanging(false);
+        baseChart.getXAxis().setAnimated(false);
+        baseChart.getYAxis().setAnimated(false);
+    }
+
+    private void setFixedAxisWidth(LineChart chart) {
+        chart.getYAxis().setPrefWidth(yAxisWidth);
+        chart.getYAxis().setMaxWidth(yAxisWidth);
+    }
+
+    private void rebuildChart() {
+        getChildren().clear();
+
+        getChildren().add(resizeBaseChart(baseChart));
+        for (LineChart lineChart : backgroundCharts) {
+            getChildren().add(resizeBackgroundChart(lineChart));
+        }
+        getChildren().add(detailsWindow);
+    }
+
+    private Node resizeBaseChart(LineChart lineChart) {
+        HBox hBox = new HBox(lineChart);
+        hBox.setAlignment(Pos.CENTER_LEFT);
+        hBox.prefHeightProperty().bind(heightProperty());
+        hBox.prefWidthProperty().bind(widthProperty());
+
+        lineChart.minWidthProperty().bind(widthProperty().subtract((yAxisWidth+yAxisSeparation)*backgroundCharts.size()));
+        lineChart.prefWidthProperty().bind(widthProperty().subtract((yAxisWidth+yAxisSeparation)*backgroundCharts.size()));
+        lineChart.maxWidthProperty().bind(widthProperty().subtract((yAxisWidth+yAxisSeparation)*backgroundCharts.size()));
+
+        return lineChart;
+    }
+
+    private Node resizeBackgroundChart(LineChart lineChart) {
+        HBox hBox = new HBox(lineChart);
+        hBox.setAlignment(Pos.CENTER_LEFT);
+        hBox.prefHeightProperty().bind(heightProperty());
+        hBox.prefWidthProperty().bind(widthProperty());
+        hBox.setMouseTransparent(true);
+
+        lineChart.minWidthProperty().bind(widthProperty().subtract((yAxisWidth + yAxisSeparation) * backgroundCharts.size()));
+        lineChart.prefWidthProperty().bind(widthProperty().subtract((yAxisWidth + yAxisSeparation) * backgroundCharts.size()));
+        lineChart.maxWidthProperty().bind(widthProperty().subtract((yAxisWidth + yAxisSeparation) * backgroundCharts.size()));
+
+        lineChart.translateXProperty().bind(baseChart.getYAxis().widthProperty());
+        lineChart.getYAxis().setTranslateX((yAxisWidth + yAxisSeparation) * backgroundCharts.indexOf(lineChart));
+
+        return hBox;
+    }
+    public XYChart.Series getSeries(int index) {
+    	return (Series) backgroundCharts.get(index).getData().get(0);
+    }
+    public XYChart.Series removeSeries(int index) {
+    	return (Series) backgroundCharts.remove(index).getData().get(0);
+    }
+
+    public void addSeries(XYChart.Series series, Color lineColor, int index) {
+        NumberAxis yAxis = new NumberAxis();
+        NumberAxis xAxis = new NumberAxis();
+
+        // style x-axis
+        xAxis.setAutoRanging(false);
+        xAxis.setVisible(false);
+        xAxis.setOpacity(0.0); // somehow the upper setVisible does not work
+        xAxis.lowerBoundProperty().bind(((NumberAxis) baseChart.getXAxis()).lowerBoundProperty());
+        xAxis.upperBoundProperty().bind(((NumberAxis) baseChart.getXAxis()).upperBoundProperty());
+        xAxis.tickUnitProperty().bind(((NumberAxis) baseChart.getXAxis()).tickUnitProperty());
+
+        // style y-axis
+        yAxis.setSide(Side.RIGHT);
+        yAxis.setLabel(series.getName());
+
+        // create chart
+        LineChart lineChart = new LineChart(xAxis, yAxis);
+
+        lineChart.setAnimated(false);
+        lineChart.setLegendVisible(false);
+        lineChart.getData().add(0, series);
+
+        styleBackgroundChart(lineChart, lineColor);
+        setFixedAxisWidth(lineChart);
+
+        chartColorMap.put(lineChart, lineColor);
+        backgroundCharts.add(index, lineChart);
+    }
+
+    private void styleBackgroundChart(LineChart lineChart, Color lineColor) {
+        styleChartLine(lineChart, lineColor);
+
+        Node contentBackground = lineChart.lookup(".chart-content").lookup(".chart-plot-background");
+        contentBackground.setStyle("-fx-background-color: transparent;");
+
+        lineChart.setVerticalZeroLineVisible(false);
+        lineChart.setHorizontalZeroLineVisible(false);
+        lineChart.setVerticalGridLinesVisible(false);
+        lineChart.setHorizontalGridLinesVisible(false);
+        lineChart.setCreateSymbols(false);
+    }
+
+    private String toRGBCode(Color color) {
+        return String.format("#%02X%02X%02X",
+                (int) (color.getRed() * 255),
+                (int) (color.getGreen() * 255),
+                (int) (color.getBlue() * 255));
+    }
+
+    private void styleChartLine(LineChart chart, Color lineColor) {
+        chart.getYAxis().lookup(".axis-label").setStyle("-fx-text-fill: " + toRGBCode(lineColor) + "; -fx-font-weight: bold;");
+        Node seriesLine = chart.lookup(".chart-series-line");
+        seriesLine.setStyle("-fx-stroke: " + toRGBCode(lineColor) + "; -fx-stroke-width: " + strokeWidth + ";");
+    }
+
+    public Node getLegend() {
+        HBox hBox = new HBox();
+
+        final CheckBox baseChartCheckBox = new CheckBox(baseChart.getYAxis().getLabel());
+        baseChartCheckBox.setSelected(true);
+        baseChartCheckBox.setStyle("-fx-text-fill: " + toRGBCode(chartColorMap.get(baseChart)) + "; -fx-font-weight: bold;");
+        baseChartCheckBox.setDisable(false);
+
+        baseChartCheckBox.getStyleClass().add("readonly-checkbox");
+        baseChartCheckBox.setOnAction(event -> baseChartCheckBox.setSelected(true));
+        hBox.getChildren().add(baseChartCheckBox);
+
+        for (final LineChart lineChart : backgroundCharts) {
+            CheckBox checkBox = new CheckBox(lineChart.getYAxis().getLabel());
+            checkBox.setStyle("-fx-text-fill: " + toRGBCode(chartColorMap.get(lineChart)) + "; -fx-font-weight: bold");
+            checkBox.setSelected(true);
+            checkBox.setOnAction(event -> {
+                if (backgroundCharts.contains(lineChart)) {
+                    backgroundCharts.remove(lineChart);
+                } else {
+                    backgroundCharts.add(lineChart);
+                }
+            });
+            hBox.getChildren().add(checkBox);
+        }
+
+        hBox.setAlignment(Pos.CENTER);
+        hBox.setSpacing(20);
+        hBox.setStyle("-fx-padding: 0 10 20 10");
+
+        return hBox;
+    }
+
+    private class DetailsPopup extends VBox {
+
+        private DetailsPopup() {
+            setStyle("-fx-border-width: 1px; -fx-padding: 5 5 5 5px; -fx-border-color: gray; -fx-background-color: whitesmoke;");
+            setVisible(false);
+        }
+
+        public void showChartDescrpition(MouseEvent event) {
+            getChildren().clear();
+
+            Long xValueLong = Math.round((double)baseChart.getXAxis().getValueForDisplay(event.getX()));
+
+            HBox baseChartPopupRow = buildPopupRow(event, xValueLong, baseChart);
+            if (baseChartPopupRow != null) {
+                getChildren().add(baseChartPopupRow);
+            }
+
+            for (LineChart lineChart : backgroundCharts) {
+                HBox popupRow = buildPopupRow(event, xValueLong, lineChart);
+                if (popupRow == null) continue;
+
+                getChildren().add(popupRow);
+            }
+        }
+
+        private HBox buildPopupRow(MouseEvent event, Long xValueLong, LineChart lineChart) {
+            Label seriesName = new Label(lineChart.getYAxis().getLabel());
+            seriesName.setTextFill(chartColorMap.get(lineChart));
+
+            Number yValueForChart = getYValueForX(lineChart, xValueLong.intValue());
+            if (yValueForChart == null) {
+                return null;
+            }
+            Number yValueLower = Math.round(normalizeYValue(lineChart, event.getY() - 10));
+            Number yValueUpper = Math.round(normalizeYValue(lineChart, event.getY() + 10));
+            Number yValueUnderMouse = Math.round((double) lineChart.getYAxis().getValueForDisplay(event.getY()));
+
+            // make series name bold when mouse is near given chart's line
+            if (isMouseNearLine(yValueForChart, yValueUnderMouse, Math.abs(yValueLower.doubleValue()-yValueUpper.doubleValue()))) {
+                seriesName.setStyle("-fx-font-weight: bold");
+            }
+
+            HBox popupRow = new HBox(10, seriesName, new Label("["+yValueForChart+"]"));
+            return popupRow;
+        }
+
+        private double normalizeYValue(LineChart lineChart, double value) {
+            Double val = (Double) lineChart.getYAxis().getValueForDisplay(value);
+            if (val == null) {
+                return 0;
+            } else {
+                return val;
+            }
+        }
+
+        private boolean isMouseNearLine(Number realYValue, Number yValueUnderMouse, Double tolerance) {
+            return (Math.abs(yValueUnderMouse.doubleValue() - realYValue.doubleValue()) < tolerance);
+        }
+
+        public Number getYValueForX(LineChart chart, Number xValue) {
+            List<XYChart.Data> dataList = ((List<XYChart.Data>)((XYChart.Series)chart.getData().get(0)).getData());
+            for (XYChart.Data data : dataList) {
+                if (data.getXValue().equals(xValue)) {
+                    return (Number)data.getYValue();
+                }
+            }
+            return null;
+        }
+    }
+}package application;
+
+import javafx.application.Application;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.ObservableList;
+import javafx.event.EventHandler;
+import javafx.geometry.Point2D;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.function.Function;
+
+public class MultipleAxesLineChartMain extends Application {
+
+
+    Temp temp = new Temp();
+    final int X_DATA_COUNT = temp.getMeas1count();
+    @Override
+    public void start(Stage primaryStage) throws Exception{
+        NumberAxis xAxis = new NumberAxis(0, X_DATA_COUNT, 500);
+        NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel(temp.getMeas1name());
+
+        System.out.println("add meas1");
+        LineChart baseChart = new LineChart(xAxis, yAxis);
+
+        ArrayList<XYChart.Data<Number, Number>> measData = new ArrayList<>(X_DATA_COUNT);
+        baseChart.getData().add(prepareSeries(temp.getMeas1name(), temp.getMeas1()));
+        MultipleAxesLineChart chart = new MultipleAxesLineChart(baseChart, Color.RED);
+
+        System.out.println("add meas2");
+        chart.addSeries(prepareSeries(temp.getMeas2name(), temp.getMeas2()), Color.BLUE, 0);
+        Grp grp = new Grp();
+        chart.addSeries(prepareSeries(grp.getHeaders()[1], grp.getMeasures().get(1)), Color.ALICEBLUE, 1);
+        chart.addSeries(prepareSeries(grp.getHeaders()[3], grp.getMeasures().get(3)), Color.AQUAMARINE, 2);
+        chart.addSeries(prepareSeries(grp.getHeaders()[12], grp.getMeasures().get(12)), Color.CADETBLUE, 3);
+        chart.addSeries(prepareSeries(grp.getHeaders()[50], grp.getMeasures().get(50)), Color.BLUEVIOLET, 4);
+        //MOUSE
+   /*     baseChart.setOnMousePressed(new EventHandler<MouseEvent>() {
+
+			@Override
+			public void handle(MouseEvent event) {
+				// TODO Auto-generated method stub
+				ArrayList<XYChart.Data<Number,Number>> list = new ArrayList<XYChart.Data<Number,Number>>();//(chart.removeSeries(0).getData());
+
+				int count = chart.removeSeries(0).getData().size();
+				for(int i=0; i < chart.removeSeries(0).getData().size(); i++) {
+
+				}
+				Collections.reverse(list);
+				chart.addSeries(prepareSeries("reverse", list),  Color.BLUE, 0);
+
+			}
+
+        });
+        baseChart.setOnMouseDragged(new EventHandler<MouseEvent>() {
+
+			@Override
+			public void handle(MouseEvent event) {
+				// TODO Auto-generated method stub
+
+			}
+
+        }); */
+        //~MOUSE
+        primaryStage.setTitle("MultipleAxesLineChart");
+
+        BorderPane borderPane = new BorderPane();
+        borderPane.setCenter(chart);
+        borderPane.setBottom(chart.getLegend());
+        System.out.println("show");
+        Scene scene = new Scene(borderPane, 1024, 600);
+        scene.getStylesheets().add(getClass().getResource("style.css").toExternalForm());
+
+        primaryStage.setScene(scene);
+        primaryStage.show();
+    }
+
+    private XYChart.Series<Number, Number> prepareSeries(String name, ArrayList<XYChart.Data<Number, Number>> list ) {
+    	XYChart.Series<Number, Number> series = new XYChart.Series<>();
+    	series.setName(name);
+    	//int i = 0;
+    	//for(Float y : list) {
+    	//	if(i%10000==0)
+    	//		System.out.println(i);
+    	//	series.getData().add(new XYChart.Data(i++, y));
+
+    	//}
+    	series.getData().addAll(list);
+    	return series;
+    }
+    private XYChart.Series<Number, Number> prepareSeries(String name, Function<Integer, Double> function) {
+        XYChart.Series<Number, Number> series = new XYChart.Series<>();
+        series.setName(name);
+        for (int i = 0; i < X_DATA_COUNT; i++) {
+            series.getData().add(new XYChart.Data<>(i, function.apply(i)));
+        }
+        return series;
+    }
+
+    private void setUpZooming(final Rectangle rect, final Node zoomingNode) {
+        final ObjectProperty<Point2D> mouseAnchor = new SimpleObjectProperty<>();
+        zoomingNode.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                mouseAnchor.set(new Point2D(event.getX(), event.getY()));
+                rect.setWidth(0);
+                rect.setHeight(0);
+            }
+        });
+        zoomingNode.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                double x = event.getX();
+                double y = event.getY();
+                rect.setX(Math.min(x, mouseAnchor.get().getX()));
+                rect.setY(Math.min(y, mouseAnchor.get().getY()));
+                rect.setWidth(Math.abs(x - mouseAnchor.get().getX()));
+                rect.setHeight(Math.abs(y - mouseAnchor.get().getY()));
+            }
+        });
+    }
+
+    private void doZoom(Rectangle zoomRect, LineChart<Number, Number> chart) {
+        Point2D zoomTopLeft = new Point2D(zoomRect.getX(), zoomRect.getY());
+        Point2D zoomBottomRight = new Point2D(zoomRect.getX() + zoomRect.getWidth(), zoomRect.getY() + zoomRect.getHeight());
+        final NumberAxis yAxis = (NumberAxis) chart.getYAxis();
+        Point2D yAxisInScene = yAxis.localToScene(0, 0);
+        final NumberAxis xAxis = (NumberAxis) chart.getXAxis();
+        Point2D xAxisInScene = xAxis.localToScene(0, 0);
+        double xOffset = zoomTopLeft.getX() - yAxisInScene.getX() ;
+        double yOffset = zoomBottomRight.getY() - xAxisInScene.getY();
+        double xAxisScale = xAxis.getScale();
+        double yAxisScale = yAxis.getScale();
+        xAxis.setLowerBound(xAxis.getLowerBound() + xOffset / xAxisScale);
+        xAxis.setUpperBound(xAxis.getLowerBound() + zoomRect.getWidth() / xAxisScale);
+        yAxis.setLowerBound(yAxis.getLowerBound() + yOffset / yAxisScale);
+        yAxis.setUpperBound(yAxis.getLowerBound() - zoomRect.getHeight() / yAxisScale);
+        System.out.println(yAxis.getLowerBound() + " " + yAxis.getUpperBound());
+        zoomRect.setWidth(0);
+        zoomRect.setHeight(0);
+    }
+
+    public static void main(String[] args) {
+        launch(args);
+    }
+}package application;
+
+import java.io.FileInputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.text.SimpleDateFormat;
+import java.util.ArrayList;
+import java.util.Calendar;
+
+import javafx.scene.chart.XYChart;
+
+import java.nio.file.Files;
+public class Temp {
+
+	private ArrayList<XYChart.Data<Number, Number>> meas1;
+	private ArrayList<XYChart.Data<Number, Number>> meas2;
+	String meas1name;
+	String meas2name;
+	int meas1count;
+	int meas2count;
+
+
+
+
+	public int getMeas1count() {
+		return meas1count;
+	}
+
+
+	public int getMeas2count() {
+		return meas2count;
+	}
+
+
+	public String getMeas1name() {
+		return meas1name;
+	}
+
+
+	public String getMeas2name() {
+		return meas2name;
+	}
+
+
+	public ArrayList<XYChart.Data<Number, Number>> getMeas1() {
+		return meas1;
+	}
+
+
+	public ArrayList<XYChart.Data<Number, Number>> getMeas2() {
+		return meas2;
+	}
+
+
+	public Temp()  {
+		String fileName = "C:/TEMP/file.gst";
+
+		RandomAccessFile fis;
+		try {
+			fis = new RandomAccessFile(fileName, "r");
+
+		//System.out.println("lenght: " + fis.length());
+		byte[] version = new byte[8];
+		fis.read(version);
+		byte[] cmn1n = new byte[32];
+		byte[] cmn1v = new byte[64];
+		fis.read(cmn1n);
+		fis.read(cmn1v);
+		byte[] cmn2n = new byte[32];
+		byte[] cmn2v = new byte[64];
+		fis.read(cmn2n);
+		fis.read(cmn2v);
+		byte[] cmn3n = new byte[32];
+		byte[] cmn3v = new byte[64];
+		fis.read(cmn3n);
+		fis.read(cmn3v);
+		byte[] cmn4n = new byte[32];
+		byte[] cmn4v = new byte[64];
+		fis.read(cmn4n);
+		fis.read(cmn4v);
+		byte[] cmn5n = new byte[32];
+		byte[] cmn5v = new byte[64];
+		fis.read(cmn5n);
+		fis.read(cmn5v);
+		byte[] cmn6n = new byte[32];
+		byte[] cmn6v = new byte[64];
+		fis.read(cmn6n);
+		fis.read(cmn6v);
+		byte[] cmn7n = new byte[32];
+		byte[] cmn7v = new byte[64];
+		fis.read(cmn7n);
+		fis.read(cmn7v);
+		byte[] cmn8n = new byte[32];
+		byte[] cmn8v = new byte[64];
+		fis.read(cmn8n);
+		fis.read(cmn8v);
+		byte[] meas1n = new byte[16];
+		byte[] meas1e = new byte[8];
+		byte[] meas1t = new byte[6];
+		byte[] meas1devname = new byte[8];
+		byte[] meas1startbyte = new byte[4];
+		byte[] meas1tperiod = new byte[4]; //time period?
+		byte[] meas1devnum = new byte[2];
+		byte[] meas1starttime = new byte[8];
+		byte[] meas1countrow = new byte[4];
+		byte[] meas1color = new byte[4]; //color of line meas
+		byte[] meas1unkn4 = new byte[8]; //???? end nothing ?
+		fis.read(meas1n);
+		fis.read(meas1e);
+		fis.read(meas1t);
+		fis.read(meas1devname);
+		fis.read(meas1startbyte);
+		fis.read(meas1tperiod);
+		fis.read(meas1devnum);
+		fis.read(meas1starttime);
+		fis.read(meas1countrow);
+		fis.read(meas1color);
+		fis.read(meas1unkn4);
+		byte[] meas2n = new byte[16];
+		byte[] meas2e = new byte[8];
+		byte[] meas2t = new byte[6];
+		byte[] meas2devname = new byte[8];
+		byte[] meas2startbyte = new byte[4];
+		byte[] meas2tperiod = new byte[4]; //time period?
+		byte[] meas2devnum = new byte[2];
+		byte[] meas2starttime = new byte[8];
+		byte[] meas2countrow = new byte[4];
+		byte[] meas2color = new byte[4]; //color of line meas
+		byte[] meas2unkn4 = new byte[8]; //???? end nothing ?
+		fis.read(meas2n);
+		fis.read(meas2e);
+		fis.read(meas2t);
+		fis.read(meas2devname);
+		fis.read(meas2startbyte);
+		fis.read(meas2tperiod);
+		fis.read(meas2devnum);
+		fis.read(meas2starttime);
+		fis.read(meas2countrow);
+		fis.read(meas2color);
+		fis.read(meas2unkn4);
+		double starttime = ByteBuffer.wrap(meas2starttime).order(ByteOrder.LITTLE_ENDIAN).getDouble();
+		System.out.println(starttime);
+		Calendar c = Calendar.getInstance();
+		c.set(1899, 11,30,0,0);
+		c.add(Calendar.DATE, (int)starttime);
+		c.add(Calendar.MINUTE,(int)((60*24)*(starttime - (int)starttime)));
+		SimpleDateFormat sdf = new SimpleDateFormat();
+
+
+		c.set(2017, 4, 26, 6, 18, 18);
+		long javatime = (c.getTimeInMillis() + 116444736000000l) * 10000;
+
+		int meas1offset = (int) (ByteBuffer.wrap(meas1startbyte).order(ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL); ;
+		int meas2offset = (int) (ByteBuffer.wrap(meas2startbyte).order(ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL); ;
+		meas1count = (int) (ByteBuffer.wrap(meas1countrow).order(ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL);
+		meas2count = (int) (ByteBuffer.wrap(meas2countrow).order(ByteOrder.LITTLE_ENDIAN).getInt() & 0xFFFFFFFFL);
+		meas1name = new String(meas1n);
+		meas2name = new String(meas2n);
+
+		System.out.println("offset1: " + meas1offset);
+		System.out.println("offset1: " + meas2offset);
+		System.out.println(meas1count);
+		System.out.println(meas2count);
+
+		meas1 = new ArrayList<>(meas1count);
+		meas2 = new ArrayList<>(meas2count);
+		for(int i = 0; i < meas1count*4; i=i+4) {
+			byte[] meas1buff = new byte[4];
+			byte[] meas2buff = new byte[4];
+
+			fis.seek(meas1offset+i);
+			fis.read(meas1buff);
+
+			fis.seek(meas2offset+i);
+			fis.read(meas2buff);
+			float meas1val = ByteBuffer.wrap(meas1buff).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+			float meas2val = ByteBuffer.wrap(meas2buff).order(ByteOrder.LITTLE_ENDIAN).getFloat();
+
+			meas1.add(new XYChart.Data<Number, Number>(i/4, meas1val));
+			meas2.add(new XYChart.Data<Number, Number>(i/4, meas2val));
+
+		}
+		System.out.println("add " +  " and "  );
+
+
+
+		} catch(Exception e ) {
+			e.printStackTrace();
+		}
+	}
+
+	public static void main(String[] args) {
+		Temp temp = new Temp();
+		System.out.println(temp.meas1.size());
+	}
+
+}package application;
+
+import java.util.Collections;
+import java.util.Random;
+
+import javafx.application.Application;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.event.EventHandler;
+import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
+import javafx.geometry.Pos;
+import javafx.scene.Node;
+import javafx.scene.Scene;
+import javafx.scene.chart.Axis;
+import javafx.scene.chart.LineChart;
+import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.XYChart.Data;
+import javafx.scene.chart.XYChart.Series;
+import javafx.scene.control.Button;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.Rectangle;
+import javafx.stage.Stage;
+
+public class ZoomableLineChart extends Application {
+
+    private static final int NUM_DATA_POINTS = 1000 ;
+
+	@Override
+	public void start(Stage primaryStage) {
+		final LineChart<Number, Number> chart = createChart();
+
+		final StackPane chartContainer = new StackPane();
+		chartContainer.getChildren().add(chart);
+
+		final Rectangle zoomRect = new Rectangle();
+		zoomRect.setManaged(false);
+		zoomRect.setFill(Color.LIGHTSEAGREEN.deriveColor(0, 1, 1, 0.3));
+		chartContainer.getChildren().add(zoomRect);
+
+		setUpZooming(zoomRect, chart);
+
+		final HBox controls = new HBox(10);
+		controls.setPadding(new Insets(10));
+		controls.setAlignment(Pos.CENTER);
+
+		final Button zoomButton = new Button("Zoom");
+		final Button resetButton = new Button("Reset");
+		zoomButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                doZoom(zoomRect, chart);
+            }
+        });
+		resetButton.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                final NumberAxis xAxis = (NumberAxis)chart.getXAxis();
+                xAxis.setLowerBound(0);
+                xAxis.setUpperBound(1000);
+                final NumberAxis yAxis = (NumberAxis)chart.getYAxis();
+                yAxis.setLowerBound(0);
+                yAxis.setUpperBound(1000);
+
+                zoomRect.setWidth(0);
+                zoomRect.setHeight(0);
+            }
+        });
+		final BooleanBinding disableControls =
+		        zoomRect.widthProperty().lessThan(5)
+		        .or(zoomRect.heightProperty().lessThan(5));
+		zoomButton.disableProperty().bind(disableControls);
+		controls.getChildren().addAll(zoomButton, resetButton);
+
+		final BorderPane root = new BorderPane();
+		root.setCenter(chartContainer);
+		root.setBottom(controls);
+
+		final Scene scene = new Scene(root, 600, 400);
+		primaryStage.setScene(scene);
+		primaryStage.show();
+	}
+
+	private LineChart<Number, Number> createChart() {
+	    final NumberAxis xAxis = createAxis();
+	    final NumberAxis yAxis = createAxis();
+	    final LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
+	    chart.setAnimated(false);
+	    chart.setCreateSymbols(false);
+	    chart.setData(generateChartData());
+	    return chart ;
+	}
+
+    private NumberAxis createAxis() {
+        final NumberAxis xAxis = new NumberAxis();
+	    xAxis.setAutoRanging(false);
+	    xAxis.setLowerBound(0);
+	    xAxis.setUpperBound(1000);
+        return xAxis;
+    }
+
+    private ObservableList<Series<Number, Number>> generateChartData() {
+        final Series<Number, Number> series = new Series<>();
+        series.setName("Data");
+        final Random rng = new Random();
+        for (int i=0; i<NUM_DATA_POINTS; i++) {
+            Data<Number, Number> dataPoint = new Data<Number, Number>(i, rng.nextInt(1000));
+            series.getData().add(dataPoint);
+        }
+        return FXCollections.observableArrayList(Collections.singleton(series));
+    }
+
+    private void setUpZooming(final Rectangle rect, final Node zoomingNode) {
+        final ObjectProperty<Point2D> mouseAnchor = new SimpleObjectProperty<>();
+        zoomingNode.setOnMousePressed(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                mouseAnchor.set(new Point2D(event.getX(), event.getY()));
+                rect.setWidth(0);
+                rect.setHeight(0);
+            }
+        });
+        zoomingNode.setOnMouseDragged(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                double x = event.getX();
+                double y = event.getY();
+                rect.setX(Math.min(x, mouseAnchor.get().getX()));
+                rect.setY(Math.min(y, mouseAnchor.get().getY()));
+                rect.setWidth(Math.abs(x - mouseAnchor.get().getX()));
+                rect.setHeight(Math.abs(y - mouseAnchor.get().getY()));
+            }
+        });
+    }
+
+    private void doZoom(Rectangle zoomRect, LineChart<Number, Number> chart) {
+        Point2D zoomTopLeft = new Point2D(zoomRect.getX(), zoomRect.getY());
+        Point2D zoomBottomRight = new Point2D(zoomRect.getX() + zoomRect.getWidth(), zoomRect.getY() + zoomRect.getHeight());
+        final NumberAxis yAxis = (NumberAxis) chart.getYAxis();
+        Point2D yAxisInScene = yAxis.localToScene(0, 0);
+        final NumberAxis xAxis = (NumberAxis) chart.getXAxis();
+        Point2D xAxisInScene = xAxis.localToScene(0, 0);
+        double xOffset = zoomTopLeft.getX() - yAxisInScene.getX() ;
+        double yOffset = zoomBottomRight.getY() - xAxisInScene.getY();
+        double xAxisScale = xAxis.getScale();
+        double yAxisScale = yAxis.getScale();
+        xAxis.setLowerBound(xAxis.getLowerBound() + xOffset / xAxisScale);
+        xAxis.setUpperBound(xAxis.getLowerBound() + zoomRect.getWidth() / xAxisScale);
+        yAxis.setLowerBound(yAxis.getLowerBound() + yOffset / yAxisScale);
+        yAxis.setUpperBound(yAxis.getLowerBound() - zoomRect.getHeight() / yAxisScale);
+        System.out.println(yAxis.getLowerBound() + " " + yAxis.getUpperBound());
+        zoomRect.setWidth(0);
+        zoomRect.setHeight(0);
+    }
+
+	public static void main(String[] args) {
+		launch(args);
+	}
+}
