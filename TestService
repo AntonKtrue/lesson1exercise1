@@ -1,0 +1,57 @@
+package hello;
+
+import com.sun.deploy.net.HttpResponse;
+import org.springframework.http.*;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.converter.HttpMessageConverter;
+import org.springframework.http.converter.StringHttpMessageConverter;
+import org.springframework.web.client.RestTemplate;
+import org.w3c.dom.Document;
+import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
+import java.io.IOException;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.List;
+
+public class Test {
+
+    public static void main(String[] args) throws ParserConfigurationException, IOException, SAXException {
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("eKassir-PointID", "###");
+        headers.add("eKassir-Password", "###");
+        headers.add("eKassir-Version","3");
+
+        headers.setContentType(MediaType.TEXT_PLAIN);
+
+        String xmlString = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
+                "<Request xmlns=\"http://ekassir.com/eKassir/PaySystem/Server/eKassirV3Protocol\"\n" +
+                "\txmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:type=\"GetDirectoryRequest\" ServicesDetalization=\"1\">\n" +
+                "</Request>";
+
+
+
+
+        RestTemplate restTemplate =  new RestTemplate();
+        List<HttpMessageConverter<?>> messageConverters = new ArrayList<HttpMessageConverter<?>>();
+        messageConverters.add(new StringHttpMessageConverter());
+        restTemplate.setMessageConverters(messageConverters);
+
+
+        HttpEntity<String> request = new HttpEntity<String>(xmlString, headers);
+        HttpHeaders headers1 = request.getHeaders();
+        final ResponseEntity<String> response = restTemplate.postForEntity("http://13.79.172.144:8099/", request, String.class);
+
+        System.out.println(response);
+
+
+
+
+
+    }
+}
