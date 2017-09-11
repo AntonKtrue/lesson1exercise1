@@ -45,7 +45,7 @@ public class Test {
 
         HttpEntity<String> request = new HttpEntity<String>(xmlString, headers);
         HttpHeaders headers1 = request.getHeaders();
-        final ResponseEntity<String> response = restTemplate.postForEntity("http://13.79.172.144:8099/", request, String.class);
+        final ResponseEntity<String> response = restTemplate.postForEntity("http://", request, String.class);
 
         System.out.println(response);
 
