@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Request xmlns="http://ekassir.com/eKassir/PaySystem/Server/eKassirV3Protocol"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:type="GetDirectoryRequest" ServicesDetalization="2">
+</Request>
